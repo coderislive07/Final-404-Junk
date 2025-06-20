@@ -151,7 +151,7 @@ export default function Booknow() {
     setSubmitStatus(null)
 
     try {
-      const response = await fetch("http://localhost:5000/api/booking/submit", {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/booking/submit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
