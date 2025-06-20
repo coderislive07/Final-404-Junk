@@ -1,4 +1,4 @@
-"use client"
+
 import React from "react"
 import { MapPin, Phone, Clock, CheckCircle, Star, Navigation, Truck, Users, Award } from "lucide-react"
 
