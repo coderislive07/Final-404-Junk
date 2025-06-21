@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from "react"
-import { Calendar, Clock, User, Mail, Phone, MapPin, FileText, CheckCircle, Truck, AlertCircle } from "lucide-react"
+import {
+  Calendar,
+  Clock,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  FileText,
+  CheckCircle,
+  Truck,
+  AlertCircle,
+  Camera,
+  X,
+} from "lucide-react"
 
 
 export default function Booknow() {
@@ -20,6 +33,8 @@ export default function Booknow() {
     specialInstructions: "",
   })
 
+  const [selectedImages, setSelectedImages] = useState([])
+  const [imagePreviews, setImagePreviews] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
   const [errors, setErrors] = useState({})
@@ -50,7 +65,7 @@ export default function Booknow() {
     "6:00 PM - 8:00 PM",
   ]
 
-
+  // Check for URL parameters for pre-selected service and price
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const serviceFromUrl = urlParams.get("service")
@@ -99,6 +114,76 @@ export default function Booknow() {
     }
   }
 
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files)
+
+    // Validate file count
+    if (selectedImages.length + files.length > 5) {
+      setErrors((prev) => ({
+        ...prev,
+        images: "Maximum 5 images allowed",
+      }))
+      return
+    }
+
+    // Validate file types and sizes
+    const validFiles = []
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"]
+
+    for (const file of files) {
+      if (!validTypes.includes(file.type)) {
+        setErrors((prev) => ({
+          ...prev,
+          images: "Only image files are allowed (JPEG, PNG, GIF, WebP)",
+        }))
+        return
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB
+        setErrors((prev) => ({
+          ...prev,
+          images: "Each image must be less than 5MB",
+        }))
+        return
+      }
+
+      validFiles.push(file)
+    }
+
+    // Clear any previous image errors
+    if (errors.images) {
+      setErrors((prev) => ({
+        ...prev,
+        images: "",
+      }))
+    }
+
+    // Add new files to selected images
+    setSelectedImages((prev) => [...prev, ...validFiles])
+
+    // Create preview URLs
+    validFiles.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setImagePreviews((prev) => [
+          ...prev,
+          {
+            file: file,
+            url: e.target.result,
+            name: file.name,
+          },
+        ])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const removeImage = (index) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const validateForm = () => {
     const newErrors = {}
 
@@ -121,7 +206,7 @@ export default function Booknow() {
     }
 
     // Phone validation
-    const phoneRegex = /^[\d\s\-+$$$$]+$/
+    const phoneRegex = /^[\d\s\-+()]+$/
     if (bookingData.phone && !phoneRegex.test(bookingData.phone)) {
       newErrors.phone = "Please enter a valid phone number"
     }
@@ -151,15 +236,27 @@ export default function Booknow() {
     setSubmitStatus(null)
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/booking/submit`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(bookingData),
+      // Create FormData for file upload
+      const formData = new FormData()
+
+      // Append all booking data
+      Object.keys(bookingData).forEach((key) => {
+        formData.append(key, bookingData[key])
       })
 
-      if (response.ok) {
+      // Append images
+      selectedImages.forEach((image) => {
+        formData.append("garbageImages", image)
+      })
+
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/booking/submit`, {
+        method: "POST",
+        body: formData, // Don't set Content-Type header, let browser set it with boundary
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
         setSubmitStatus("success")
         // Reset form
         setBookingData({
@@ -178,8 +275,11 @@ export default function Booknow() {
           emergencyContact: "",
           specialInstructions: "",
         })
+        setSelectedImages([])
+        setImagePreviews([])
       } else {
         setSubmitStatus("error")
+        console.error("Booking submission failed:", result)
       }
     } catch (error) {
       console.error("Error submitting booking:", error)
@@ -191,7 +291,7 @@ export default function Booknow() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
- 
+
 
       {/* Header Section */}
       <section className="pt-24 pb-12 bg-gradient-to-br from-gray-900 via-gray-950 to-black">
@@ -204,8 +304,8 @@ export default function Booknow() {
             Book Now
           </h1>
           <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-            Fill out the form below to schedule your junk removal service. We'll confirm your booking and provide all
-            the details you need.
+            Fill out the form below to schedule your junk removal service. Upload photos of your items for a more
+            accurate estimate!
           </p>
         </div>
       </section>
@@ -218,8 +318,8 @@ export default function Booknow() {
               <CheckCircle className="text-green-400 mx-auto mb-4" size={48} />
               <h3 className="text-2xl font-bold text-green-400 mb-2">Booking Confirmed!</h3>
               <p className="text-gray-300">
-                Thank you for your booking. We've sent a confirmation email and will contact you shortly to confirm the
-                details.
+                Thank you for your booking. We've sent a confirmation email and will contact you within 24 hours to
+                confirm the details.
               </p>
             </div>
           )}
@@ -293,6 +393,68 @@ export default function Booknow() {
                   <p className="text-gray-400 text-sm mt-2">
                     Final price based on actual weight. This estimate includes pickup, weighing, and disposal.
                   </p>
+                </div>
+              )}
+            </div>
+
+            {/* Image Upload Section */}
+            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8">
+              <h2 className="text-2xl font-bold mb-6 flex items-center">
+                <Camera className="text-green-400 mr-3" size={24} />
+                Upload Photos of Your Items
+              </h2>
+
+              <div className="mb-4">
+                <p className="text-gray-400 text-sm mb-4">
+                  Upload photos of the items you need removed for a more accurate estimate. Maximum 5 images, 5MB each.
+                </p>
+
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700/50 hover:bg-gray-700/70 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Camera className="w-8 h-8 mb-2 text-gray-400" />
+                      <p className="mb-2 text-sm text-gray-400">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF, WebP (MAX. 5MB each)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      multiple
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={selectedImages.length >= 5}
+                    />
+                  </label>
+                </div>
+
+                {errors.images && <p className="text-red-400 text-sm mt-2">{errors.images}</p>}
+              </div>
+
+              {/* Image Previews */}
+              {imagePreviews.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold mb-4">Selected Images ({imagePreviews.length}/5)</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={preview.url || "/placeholder.svg"}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={16} />
+                        </button>
+                        <p className="text-xs text-gray-400 mt-1 truncate">{preview.name}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -541,6 +703,7 @@ export default function Booknow() {
           </form>
         </div>
       </section>
+
 
     </div>
   )

@@ -1,9 +1,52 @@
 const express = require("express")
 const { body, validationResult } = require("express-validator")
 const nodemailer = require("nodemailer")
+const multer = require("multer")
+const path = require("path")
+const fs = require("fs")
 const router = express.Router()
 
-// Email transporter configuration
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = "uploads/"
+    // Create uploads directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
+    }
+    cb(null, uploadDir)
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename with timestamp
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
+    cb(null, "garbage-" + uniqueSuffix + path.extname(file.originalname))
+  },
+})
+
+// File filter to only allow images
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif|webp/
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase())
+  const mimetype = allowedTypes.test(file.mimetype)
+
+  if (mimetype && extname) {
+    return cb(null, true)
+  } else {
+    cb(new Error("Only image files are allowed (jpeg, jpg, png, gif, webp)"))
+  }
+}
+
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 5, // Maximum 5 files
+  },
+  fileFilter: fileFilter,
+})
+
+
 const createTransporter = () => {
   return nodemailer.createTransport({
     service: "gmail",
@@ -61,8 +104,21 @@ const formatServiceType = (serviceType) => {
   return serviceNames[serviceType] || serviceType
 }
 
-// Helper function to create email HTML template
-const createEmailTemplate = (bookingData) => {
+// Helper function to create email HTML template with images
+const createEmailTemplate = (bookingData, imageFiles = []) => {
+  const imagesSection =
+    imageFiles.length > 0
+      ? `
+    <div class="section">
+      <h3>📸 Garbage Images</h3>
+      <div class="info-item">
+        <p>Customer uploaded ${imageFiles.length} image(s) of the items to be removed.</p>
+        <p><em>Images are attached to this email.</em></p>
+      </div>
+    </div>
+  `
+      : ""
+
   return `
     <!DOCTYPE html>
     <html>
@@ -139,6 +195,8 @@ const createEmailTemplate = (bookingData) => {
                     </div>
                 </div>
                 
+                ${imagesSection}
+                
                 ${
                   bookingData.notes
                     ? `
@@ -171,6 +229,7 @@ const createEmailTemplate = (bookingData) => {
                         <ul>
                             <li>Contact customer within 24 hours to confirm booking</li>
                             <li>Verify service address and access details</li>
+                            <li>Review attached images of items to be removed</li>
                             <li>Confirm final pricing based on actual weight</li>
                             <li>Schedule pickup team and equipment</li>
                         </ul>
@@ -188,12 +247,20 @@ const createEmailTemplate = (bookingData) => {
   `
 }
 
-// POST /api/booking/submit
-router.post("/submit", bookingValidation, async (req, res) => {
+// POST /api/booking/submit with file upload
+router.post("/submit", upload.array("garbageImages", 5), bookingValidation, async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
+      // Clean up uploaded files if validation fails
+      if (req.files) {
+        req.files.forEach((file) => {
+          fs.unlink(file.path, (err) => {
+            if (err) console.error("Error deleting file:", err)
+          })
+        })
+      }
       return res.status(400).json({
         success: false,
         message: "Validation failed",
@@ -202,6 +269,7 @@ router.post("/submit", bookingValidation, async (req, res) => {
     }
 
     const bookingData = req.body
+    const uploadedFiles = req.files || []
 
     // Validate date is not in the past
     const selectedDate = new Date(bookingData.date)
@@ -209,6 +277,12 @@ router.post("/submit", bookingValidation, async (req, res) => {
     today.setHours(0, 0, 0, 0)
 
     if (selectedDate < today) {
+      // Clean up uploaded files
+      uploadedFiles.forEach((file) => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error("Error deleting file:", err)
+        })
+      })
       return res.status(400).json({
         success: false,
         message: "Selected date cannot be in the past",
@@ -221,6 +295,13 @@ router.post("/submit", bookingValidation, async (req, res) => {
     // Verify transporter configuration
     await transporter.verify()
 
+    // Prepare attachments from uploaded files
+    const attachments = uploadedFiles.map((file) => ({
+      filename: `garbage-image-${file.originalname}`,
+      path: file.path,
+      contentType: file.mimetype,
+    }))
+
     // Email options
     const mailOptions = {
       from: {
@@ -230,7 +311,8 @@ router.post("/submit", bookingValidation, async (req, res) => {
       to: process.env.EMAIL_USER,
       replyTo: bookingData.email,
       subject: `🚛 New Booking Request - ${bookingData.name} - ${formatServiceType(bookingData.serviceType)}`,
-      html: createEmailTemplate(bookingData),
+      html: createEmailTemplate(bookingData, uploadedFiles),
+      attachments: attachments,
       text: `
 New 404-JUNK Booking Request
 
@@ -254,6 +336,8 @@ SCHEDULING:
 - Preferred Date: ${bookingData.date}
 - Preferred Time: ${bookingData.time}
 
+${uploadedFiles.length > 0 ? `IMAGES: ${uploadedFiles.length} image(s) attached showing items to be removed` : ""}
+
 ${bookingData.notes ? `ITEMS TO REMOVE:\n${bookingData.notes}` : ""}
 
 ${bookingData.specialInstructions ? `SPECIAL INSTRUCTIONS:\n${bookingData.specialInstructions}` : ""}
@@ -272,6 +356,7 @@ Submitted on: ${new Date().toLocaleString("en-CA")}
       customer: bookingData.name,
       email: bookingData.email,
       service: formatServiceType(bookingData.serviceType),
+      imagesCount: uploadedFiles.length,
       timestamp: new Date().toISOString(),
     })
 
@@ -326,6 +411,17 @@ Submitted on: ${new Date().toLocaleString("en-CA")}
                         ${bookingData.city}, ${bookingData.postalCode}
                     </div>
                     
+                    ${
+                      uploadedFiles.length > 0
+                        ? `
+                    <div class="info-box">
+                        <strong>📸 Images Received:</strong><br>
+                        We received ${uploadedFiles.length} image(s) of your items. This will help us provide more accurate service.
+                    </div>
+                    `
+                        : ""
+                    }
+                    
                     <h3>What happens next?</h3>
                     <ul>
                         <li>We'll call you within 24 hours to confirm your booking</li>
@@ -354,6 +450,7 @@ SERVICE DETAILS:
 - Date: ${bookingData.date}
 - Time: ${bookingData.time}
 - Address: ${bookingData.address}, ${bookingData.city}, ${bookingData.postalCode}
+${uploadedFiles.length > 0 ? `- Images: ${uploadedFiles.length} image(s) received` : ""}
 
 We'll contact you within 24 hours to confirm all details.
 
@@ -365,13 +462,54 @@ Thank you for choosing 404-JUNK!
 
     await transporter.sendMail(customerMailOptions)
 
+
+    setTimeout(() => {
+      uploadedFiles.forEach((file) => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error("Error deleting file:", err)
+        })
+      })
+    }, 5000)
+
     res.status(200).json({
       success: true,
       message: "Booking request submitted successfully! We will contact you within 24 hours.",
       bookingId: info.messageId,
+      imagesUploaded: uploadedFiles.length,
     })
   } catch (error) {
     console.error("Error processing booking:", error)
+
+    // Clean up uploaded files on error
+    if (req.files) {
+      req.files.forEach((file) => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error("Error deleting file:", err)
+        })
+      })
+    }
+
+    // Handle specific errors
+    if (error.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        success: false,
+        message: "File size too large. Maximum 5MB per image.",
+      })
+    }
+
+    if (error.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({
+        success: false,
+        message: "Too many files. Maximum 5 images allowed.",
+      })
+    }
+
+    if (error.message.includes("Only image files are allowed")) {
+      return res.status(400).json({
+        success: false,
+        message: "Only image files are allowed (jpeg, jpg, png, gif, webp).",
+      })
+    }
 
     // Handle specific nodemailer errors
     if (error.code === "EAUTH") {
