@@ -56,7 +56,7 @@ export default function Booknow() {
     { range: "900-1000 lbs", multiplier: 4 },
   ]
 
-  const timeSlots = [
+  const allTimeSlots = [
     "8:00 AM - 10:00 AM",
     "10:00 AM - 12:00 PM",
     "12:00 PM - 2:00 PM",
@@ -64,6 +64,39 @@ export default function Booknow() {
     "4:00 PM - 6:00 PM",
     "6:00 PM - 8:00 PM",
   ]
+
+  // Function to get available time slots based on selected date
+  const getAvailableTimeSlots = () => {
+    if (!bookingData.date) return allTimeSlots
+
+    const selectedDate = new Date(bookingData.date)
+    const today = new Date()
+
+    // If selected date is not today, return all time slots
+    if (selectedDate.toDateString() !== today.toDateString()) {
+      return allTimeSlots
+    }
+
+    // If selected date is today, filter out past time slots
+    const currentHour = today.getHours()
+
+    return allTimeSlots.filter((slot) => {
+      // Extract the start hour from the time slot
+      const startTime = slot.split(" - ")[0]
+      let startHour
+
+      if (startTime.includes("AM")) {
+        startHour = Number.parseInt(startTime.replace(" AM", ""))
+        if (startHour === 12) startHour = 0 // 12 AM = 0 hours
+      } else {
+        startHour = Number.parseInt(startTime.replace(" PM", ""))
+        if (startHour !== 12) startHour += 12 // Convert PM to 24-hour format
+      }
+
+      // Only show time slots that start at least 2 hours from now
+      return startHour >= currentHour + 2
+    })
+  }
 
   // Check for URL parameters for pre-selected service and price
   useEffect(() => {
@@ -111,6 +144,17 @@ export default function Booknow() {
         ...prev,
         [name]: "",
       }))
+    }
+
+    // If date is changed, reset time selection if it's no longer valid
+    if (name === "date") {
+      const availableSlots = getAvailableTimeSlots()
+      if (bookingData.time && !availableSlots.includes(bookingData.time)) {
+        setBookingData((prev) => ({
+          ...prev,
+          time: "",
+        }))
+      }
     }
   }
 
@@ -221,6 +265,19 @@ export default function Booknow() {
       }
     }
 
+    // Time validation for today's date
+    if (bookingData.date && bookingData.time) {
+      const selectedDate = new Date(bookingData.date)
+      const today = new Date()
+
+      if (selectedDate.toDateString() === today.toDateString()) {
+        const availableSlots = getAvailableTimeSlots()
+        if (!availableSlots.includes(bookingData.time)) {
+          newErrors.time = "Selected time slot is no longer available for today"
+        }
+      }
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -288,6 +345,9 @@ export default function Booknow() {
       setIsSubmitting(false)
     }
   }
+
+  // Get available time slots for the current selected date
+  const availableTimeSlots = getAvailableTimeSlots()
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -632,13 +692,25 @@ export default function Booknow() {
                     }`}
                   >
                     <option value="">Select time slot</option>
-                    {timeSlots.map((slot) => (
+                    {availableTimeSlots.map((slot) => (
                       <option key={slot} value={slot}>
                         {slot}
                       </option>
                     ))}
                   </select>
                   {errors.time && <p className="text-red-400 text-sm mt-1">{errors.time}</p>}
+                  {bookingData.date && availableTimeSlots.length === 0 && (
+                    <p className="text-yellow-400 text-sm mt-1">
+                      No time slots available for today. Please select a future date.
+                    </p>
+                  )}
+                  {bookingData.date &&
+                    availableTimeSlots.length > 0 &&
+                    availableTimeSlots.length < allTimeSlots.length && (
+                      <p className="text-blue-400 text-sm mt-1">
+                        Some time slots are unavailable for today. Showing available slots only.
+                      </p>
+                    )}
                 </div>
               </div>
             </div>
@@ -704,7 +776,7 @@ export default function Booknow() {
         </div>
       </section>
 
-
+ 
     </div>
   )
 }

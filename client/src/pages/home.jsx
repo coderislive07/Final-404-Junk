@@ -20,8 +20,6 @@ import {
   Package,
   ChevronDown,
 } from "lucide-react"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
 
 export default function HomePage() {
   const [selectedService, setSelectedService] = useState(null)
@@ -29,7 +27,7 @@ export default function HomePage() {
   const [showEstimate, setShowEstimate] = useState(false)
 
   const services = [
-       {
+    {
       id: "pull up",
       name: "Pull Up",
       icon: Home,
@@ -105,6 +103,7 @@ export default function HomePage() {
     {
       title: "404-JUNK Expands to 5 New Canadian Cities",
       date: "December 15, 2024",
+      link:"/expansion-article",
       image: two,
       excerpt:
         "We're excited to announce our expansion into five new markets across Canada, bringing fair weight-based pricing to more communities.",
@@ -112,6 +111,7 @@ export default function HomePage() {
     {
       title: "Recycling Initiative Saves 10,000 Tons from Landfills",
       date: "November 28, 2024",
+      link:"/recycling-article",
       image: three,
       excerpt:
         "Our commitment to environmental responsibility has diverted over 10,000 tons of materials from landfills through our recycling partnerships.",
@@ -119,6 +119,7 @@ export default function HomePage() {
     {
       title: "Customer Satisfaction Reaches All-Time High",
       date: "November 10, 2024",
+      link:"/satisfaction-article",
       image: one,
       excerpt:
         "Thanks to our transparent weight-based pricing model, customer satisfaction has reached 98% - the highest in the industry.",
@@ -138,13 +139,10 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-   
-
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-950 to-black"></div>
-        <div   style={{ backgroundImage: `url(${bg})` }}
-         className="absolute inset-0 bg-cover bg-center opacity-30"></div>
+        <div style={{ backgroundImage: `url(${bg})` }} className="absolute inset-0 bg-cover bg-center opacity-30"></div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="mb-8">
@@ -163,10 +161,11 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-               <a href="/rates"><button className="bg-green-600 hover:bg-green-700 cursor-pointer text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
-                <span>Get Free Estimate</span>
-                <ArrowRight size={20} />
-              </button>
+              <a href="/rates">
+                <button className="bg-green-600 hover:bg-green-700 cursor-pointer text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2">
+                  <span>Get Free Estimate</span>
+                  <ArrowRight size={20} />
+                </button>
               </a>
               <button className="border border-gray-600  hover:border-green-400 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 flex items-center justify-center space-x-2">
                 <Phone size={20} />
@@ -224,15 +223,16 @@ export default function HomePage() {
       {/* Cost Estimation Section */}
       <section id="pricing" className="py-20 bg-gray-950">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-         <div className="text-center mb-16">
+          <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">Service Types</h2>
-            <p className="text-xl text-gray-400">From residential cleanouts to commercial hauling, our wide range of junk removal services is designed to help you reclaim your space quickly, affordably, and stress-free.</p>
+            <p className="text-xl text-gray-400">
+              From residential cleanouts to commercial hauling, our wide range of junk removal services is designed to
+              help you reclaim your space quickly, affordably, and stress-free.
+            </p>
           </div>
-     
 
           {/* Service Selection */}
           <div className="mb-12">
-
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {services.map((service) => {
                 const IconComponent = service.icon
@@ -254,10 +254,6 @@ export default function HomePage() {
               })}
             </div>
           </div>
-
-    
-
-  
         </div>
       </section>
 
@@ -280,10 +276,12 @@ export default function HomePage() {
                   <div className="text-green-400 text-sm mb-2">{item.date}</div>
                   <h3 className="text-xl font-bold mb-3">{item.title}</h3>
                   <p className="text-gray-400 mb-4">{item.excerpt}</p>
-                  <button className="text-green-400 hover:text-green-300 font-semibold flex items-center space-x-1">
-                    <span>Read More</span>
-                    <ArrowRight size={16} />
-                  </button>
+                  <a href={item.link}>
+                    <button className="text-green-400 hover:text-green-300 font-semibold flex items-center space-x-1">
+                      <span>Read More</span>
+                      <ArrowRight size={16} />
+                    </button>
+                  </a>
                 </div>
               </div>
             ))}
@@ -421,8 +419,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-
     </div>
   )
 }
