@@ -89,41 +89,50 @@ const Navbar = () => {
           {/* Menu Items */}
           <div className="flex flex-col p-6 space-y-6">
             <a
-              href="#services"
+              href="/services"
               className="text-gray-300 hover:text-green-400 transition-colors text-lg font-medium"
               onClick={() => setIsOpen(false)}
             >
               Services
             </a>
             <a
-              href="#pricing"
+              href="/why-404-junk"
               className="text-gray-300 hover:text-green-400 transition-colors text-lg font-medium"
               onClick={() => setIsOpen(false)}
             >
-              Pricing
+              Why 404-Junk
             </a>
             <a
-              href="#locations"
+              href="/rates"
+              className="text-gray-300 hover:text-green-400 transition-colors text-lg font-medium"
+              onClick={() => setIsOpen(false)}
+            >
+              Rates
+            </a>
+            <a
+              href="/how-it-works"
+              className="text-gray-300 hover:text-green-400 transition-colors text-lg font-medium"
+              onClick={() => setIsOpen(false)}
+            >
+              How it works
+            </a>
+            <a
+              href="/locations"
               className="text-gray-300 hover:text-green-400 transition-colors text-lg font-medium"
               onClick={() => setIsOpen(false)}
             >
               Locations
             </a>
-            <a
-              href="#about"
-              className="text-gray-300 hover:text-green-400 transition-colors text-lg font-medium"
-              onClick={() => setIsOpen(false)}
-            >
-              About
-            </a>
 
             {/* Phone Button */}
+            <a href="/book-now">
             <div className="pt-4 border-t border-gray-700">
               <div className="flex items-center space-x-3 bg-green-600 hover:bg-green-700 px-6 py-4 rounded-full transition-colors">
                 <Phone size={20} />
-                <span className="text-white font-semibold text-lg">604-505-5865</span>
+                <span className="text-white font-semibold text-lg">Book Now</span>
               </div>
             </div>
+            </a>
 
             {/* Additional Info */}
             <div className="pt-4 text-center">
